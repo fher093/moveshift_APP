@@ -8,18 +8,18 @@ return [
     |--------------------------------------------------------------------------
     |
     | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
+    | as Mailgun, Postmark, AWS and more. This file provides a sane default
     | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
+    | a conventional place to find your various credentials.
     |
     */
 
-    'postmark' => [
-        'key' => env('POSTMARK_API_KEY'),
+    'mailgun' => [
+        'secret' => env('MAILGUN_SECRET'),
     ],
 
-    'resend' => [
-        'key' => env('RESEND_API_KEY'),
+    'postmark' => [
+        'token' => env('POSTMARK_TOKEN'),
     ],
 
     'ses' => [
@@ -28,11 +28,17 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'slack' => [
-        'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
-        ],
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
+    'microsoft' => [
+        'client_id' => env('MICROSOFT_CLIENT_ID'),
+        'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+        'redirect' => env('MICROSOFT_REDIRECT_URI'),
+        'tenant' => 'common',
     ],
 
 ];
