@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Route; 
+use App\Http\Controllers\Auth\RegisteredUserController;
+
 
 Route::get('/', function () {
     return view('welcome');
@@ -29,6 +31,29 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile/password', [ProfileController::class, 'changePassword'])
         ->name('profile.password');
 });
+
+// Registro con verificación
+Route::middleware('guest')->group(function () {
+    // Mostrar registro
+    Route::get('/register', [RegisteredUserController::class, 'create'])
+        ->name('register');
+    
+    // Guardar datos y enviar código
+    Route::post('/register', [RegisteredUserController::class, 'store']);
+    
+    // Mostrar verificación
+    Route::get('/verify-email', [RegisteredUserController::class, 'showVerifyEmail'])
+        ->name('auth.verify-email');
+    
+    // Verificar código y crear usuario
+    Route::post('/verify-email', [RegisteredUserController::class, 'verifyEmail'])
+        ->name('auth.verify-email.store');
+    
+    // Reenviar código
+    Route::post('/resend-code', [RegisteredUserController::class, 'resendCode'])
+        ->name('auth.resend-code');
+});
+
 
 // ===== RUTAS DE AUTENTICACIÓN (LOGIN, REGISTRO, etc) =====
 require __DIR__.'/auth.php';

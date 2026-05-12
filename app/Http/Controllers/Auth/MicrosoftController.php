@@ -3,30 +3,15 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Services\AuthService;
-use Illuminate\Support\Facades\Redirect;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
 use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Facades\Http;
 
 class MicrosoftController extends Controller
 {
-    protected AuthService $authService;
-
-    public function __construct(AuthService $authService)
-    {
-        $this->authService = $authService;
-        
-        // Desactivar verificación SSL globalmente en desarrollo
-        if (app()->environment('local')) {
-            stream_context_set_default([
-                'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                ],
-            ]);
-        }
-    }
-
     /**
      * Redirigir a Microsoft para autenticación
      */
@@ -38,15 +23,15 @@ class MicrosoftController extends Controller
                 ->redirect();
         } catch (\Exception $e) {
             \Log::error('Microsoft Redirect Error: ' . $e->getMessage());
-            return Redirect::route('login')
-                ->withErrors(['email' => 'Error al redirigir a Microsoft']);
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Error al conectar con Microsoft']);
         }
     }
 
     /**
      * Manejar callback de Microsoft
      */
-    public function callback()
+    public function callback(): RedirectResponse
     {
         try {
             $microsoftUser = Socialite::driver('microsoft')->user();
@@ -56,28 +41,39 @@ class MicrosoftController extends Controller
             
             // Validar que sea correo institucional
             if (!$email || !str_ends_with($email, '@uta.edu.ec')) {
-                return Redirect::route('login')
+                return redirect()->route('login')
                     ->withErrors(['email' => 'Solo se permiten correos institucionales (@uta.edu.ec)']);
             }
 
-            // Procesar autenticación
-            $result = $this->authService->handleMicrosoftAuthentication([
-                'id' => $microsoftUser->id ?? $microsoftUser->getId(),
-                'name' => $microsoftUser->name ?? $microsoftUser->getName() ?? 'Usuario',
-                'email' => $email,
-                'avatar' => $microsoftUser->avatar ?? $microsoftUser->getAvatar() ?? null,
-            ]);
+            // Buscar o crear usuario
+            $user = User::where('email', $email)->first();
 
-            if ($result['success']) {
-                return Redirect::route('dashboard');
+            if (!$user) {
+                // Crear nuevo usuario
+                $user = User::create([
+                    'name' => explode(' ', $microsoftUser->name ?? 'Usuario')[0],
+                    'last_name' => implode(' ', array_slice(explode(' ', $microsoftUser->name ?? ''), 1)) ?: 'Usuario',
+                    'email' => $email,
+                    'microsoft_id' => $microsoftUser->id,
+                    'password' => Hash::make(Str::random(32)),
+                    'last_login' => now(),
+                ]);
+            } else {
+                // Actualizar usuario existente
+                $user->update([
+                    'microsoft_id' => $microsoftUser->id,
+                    'last_login' => now(),
+                ]);
             }
 
-            return Redirect::route('login')
-                ->withErrors(['email' => $result['message']]);
+            // Login del usuario
+            Auth::login($user);
+
+            return redirect()->route('dashboard');
 
         } catch (\Exception $e) {
             \Log::error('Microsoft Auth Error: ' . $e->getMessage());
-            return Redirect::route('login')
+            return redirect()->route('login')
                 ->withErrors(['email' => 'Error en autenticación con Microsoft']);
         }
     }
