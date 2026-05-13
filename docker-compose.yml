@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moveshift_app
+    ports:
+      - "8000:80"
+    environment:
+      APP_NAME: Laravel
+      APP_ENV: local
+      APP_KEY: base64:HrjuYoaNQgPvADjwMRhF7PxN02Hb2gMkImdEZ8QhIeE=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: moveshift_db
+      DB_USERNAME: root
+      DB_PASSWORD: Fernando10032001
+      SESSION_DRIVER: database
+      QUEUE_CONNECTION: database
+      CACHE_STORE: database
+      MAIL_MAILER: smtp
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: fherdavidlleru@gmail.com
+      MAIL_PASSWORD: xrjgquxxxegbdqbb
+      MAIL_ENCRYPTION: tls
+      MAIL_FROM_ADDRESS: fherdavidlleru@gmail.com
+      MAIL_FROM_NAME: "MoveShift Taxi"
+      MICROSOFT_CLIENT_ID: 35f761e4-b29b-4656-a02b-8bd810a33467
+      MICROSOFT_CLIENT_SECRET: 1f38dd45-658c-495a-a7ab-8129d9b92cea
+      MICROSOFT_REDIRECT_URI: http://localhost:8000/auth/callback/microsoft
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - storage_data:/var/www/html/storage
+
+  db:
+    image: mysql:8.0
+    container_name: moveshift_db
+    environment:
+      MYSQL_ROOT_PASSWORD: Fernando10032001
+      MYSQL_DATABASE: moveshift_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pFernando10032001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+  storage_data:
