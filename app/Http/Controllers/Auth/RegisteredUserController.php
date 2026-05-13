@@ -40,10 +40,12 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class, 'regex:/^[a-z0-9._%+-]+@uta\.edu\.ec$/i'],
+            'phone' => ['required', 'string', 'regex:/^\+593\s?9\d{8}$/'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ], [
             'email.regex' => 'Solo se permiten correos institucionales (@uta.edu.ec)',
             'email.unique' => 'Este correo ya está registrado',
+            'phone.regex' => 'El teléfono debe tener el formato: +593 9XX XXX XXX',
         ]);
 
         // Enviar código de verificación
@@ -58,6 +60,7 @@ class RegisteredUserController extends Controller
             'registration_data' => [
                 'name' => $request->name,
                 'email' => $request->email,
+                'phone' => $request->phone,
                 'password' => Hash::make($request->password),
             ]
         ]);
@@ -111,6 +114,7 @@ class RegisteredUserController extends Controller
         $user = User::create([
             'name' => $registrationData['name'],
             'email' => $registrationData['email'],
+            'phone' => $registrationData['phone'],
             'password' => $registrationData['password'],
         ]);
 

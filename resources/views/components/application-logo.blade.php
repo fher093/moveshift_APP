@@ -1,1 +1,1 @@
-<img src="{{ asset('images/moveshift-logo1.png') }}" {{ $attributes }} alt="Logo MoveShift">
+<!--<img src="{{ asset('images/moveshift-logo1.png') }}" {{ $attributes }} alt="Logo MoveShift">-->

@@ -1,6 +1,10 @@
-<x-guest-layout>
+<x-guest-layout> 
+                <!-- Logo Section -->
+    <div class="flex justify-center mb-12">
+                <img src="{{ asset('images/logo-moveshift.svg') }}" alt="MoveShift" class="h-32 w-32 rounded-full shadow-md">
+            </div>
     <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}
+        {{ __('Ingrese su dirección de correo electrónico y le enviaremos un enlace para restablecer su contraseña.') }}
     </div>
 
     <!-- Session Status -->
@@ -18,7 +22,7 @@
 
         <div class="flex items-center justify-end mt-4">
             <x-primary-button>
-                {{ __('Email Password Reset Link') }}
+                {{ __('Enviar Enlace para Restablecer Contraseña') }}
             </x-primary-button>
         </div>
     </form>

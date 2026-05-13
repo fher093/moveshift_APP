@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Mail\SendVerificationCode;
 use App\Models\VerificationCode;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class EmailVerificationService
 {
@@ -18,15 +17,13 @@ class EmailVerificationService
             // Generar código de 6 dígitos
             $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-            // Eliminar códigos anteriores no verificados
-            VerificationCode::where('email', $email)
-                ->where('verified', false)
-                ->delete();
+            // Eliminar TODOS los códigos anteriores (verificados o no)
+            VerificationCode::where('email', $email)->delete();
 
             // Crear nuevo código con expiración de 5 minutos
             VerificationCode::create([
-                'email' => $email,
-                'code' => $code,
+                'email'      => $email,
+                'code'       => $code,
                 'expires_at' => now()->addMinutes(5),
             ]);
 
@@ -37,6 +34,7 @@ class EmailVerificationService
                 'success' => true,
                 'message' => 'Código enviado a tu correo',
             ];
+
         } catch (\Exception $e) {
             \Log::error('Email Verification Error: ' . $e->getMessage());
             return [
