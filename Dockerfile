@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 # Instalar extensiones necesarias
 RUN apt-get update && apt-get install -y \
@@ -18,6 +18,9 @@ RUN a2enmod rewrite
 
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Evitar error de git ownership
+RUN git config --global --add safe.directory /var/www/html
 
 # Configurar directorio de trabajo
 WORKDIR /var/www/html
