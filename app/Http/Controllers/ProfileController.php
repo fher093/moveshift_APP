@@ -6,6 +6,7 @@ use App\Services\ProfileService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -16,53 +17,43 @@ class ProfileController extends Controller
         $this->profileService = $profileService;
     }
 
-    /**
-     * Mostrar vista de edición de perfil
-     */
     public function edit(): View
     {
         $user = auth()->user();
         return view('profile.edit', compact('user'));
     }
 
-    /**
-     * Actualizar perfil
-     */
     public function update(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|min:2|max:255',
-            'last_name' => 'required|string|min:2|max:255',
-            'phone' => 'nullable|string|regex:/^[0-9\-\+\(\)\s]+$/|max:20',
-            'zone' => 'nullable|string|max:255',
-            'career' => 'nullable|string|max:255',
-        ], [
-            'name.required' => 'El nombre es requerido',
-            'last_name.required' => 'El apellido es requerido',
-            'phone.regex' => 'El número de teléfono no es válido',
+            'name' => ['required', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'zone' => ['nullable', 'string', 'max:255'],
+            'career' => ['nullable', 'string', 'max:255'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
         ]);
 
-        $result = $this->profileService->updateProfile(auth()->id(), $validated);
+        if ($request->hasFile('avatar')) {
+            $file = $request->file('avatar');
+            $path = $file->store('avatars', 'public');
+            $validated['avatar'] = $path;
 
-        if ($result['success']) {
-            return back()->with('status', $result['message']);
+            if (auth()->user()->avatar) {
+                Storage::disk('public')->delete(auth()->user()->avatar);
+            }
         }
 
-        return back()->withErrors($result['errors'] ?? ['error' => $result['message']]);
+        $request->user()->update($validated);
+
+        return redirect()->route('profile.edit')->with('status', 'profile-updated');
     }
 
-    /**
-     * Cambiar contraseña
-     */
     public function changePassword(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'current_password' => 'required|string',
             'password' => 'required|string|min:8|confirmed',
-        ], [
-            'current_password.required' => 'La contraseña actual es requerida',
-            'password.min' => 'La nueva contraseña debe tener al menos 8 caracteres',
-            'password.confirmed' => 'Las contraseñas no coinciden',
         ]);
 
         $result = $this->profileService->changePassword(
@@ -72,7 +63,7 @@ class ProfileController extends Controller
         );
 
         if ($result['success']) {
-            return back()->with('status', $result['message']);
+            return back()->with('status', 'password-updated');
         }
 
         return back()->withErrors(['error' => $result['message']]);

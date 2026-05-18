@@ -26,9 +26,50 @@
                         </div>
                     @endif
 
-                    <form method="post" action="{{ route('profile.update') }}" class="space-y-6">
+                    <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="space-y-6">
                         @csrf
-                        @method('PATCH')
+                        @method('PATCH') 
+
+                        <!-- Avatar Upload -->
+                        <div class="mb-6">
+                            <label for="avatar" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Foto de Perfil
+                            </label>
+                            
+                            <!-- Preview -->
+                            <div class="mb-4">
+                                <img id="avatarPreview" 
+                                     src="{{ auth()->user()->avatar ? asset('storage/' . auth()->user()->avatar) : 'https://via.placeholder.com/96' }}"
+                                     alt="Avatar Preview" 
+                                     class="h-24 w-24 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600">
+                            </div>
+                            
+                            <input 
+                                type="file" 
+                                id="avatar" 
+                                name="avatar" 
+                                accept="image/*"
+                                class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                       file:mr-4 file:py-2 file:px-4
+                                       file:rounded-lg file:border-0
+                                       file:text-sm file:font-semibold
+                                       file:bg-blue-50 file:text-blue-700
+                                       hover:file:bg-blue-100">
+                            <x-input-error :messages="$errors->get('avatar')" class="mt-2" />
+                        </div>
+
+                        <script>
+                            document.getElementById('avatar').addEventListener('change', function(e) {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = function(event) {
+                                        document.getElementById('avatarPreview').src = event.target.result;
+                                    }
+                                    reader.readAsDataURL(file);
+                                }
+                            });
+                        </script>
 
                         <!-- Nombre -->
                         <div>
@@ -49,8 +90,7 @@
                                 Apellido
                             </label>
                             <input type="text" name="last_name" id="last_name" value="{{ auth()->user()->last_name }}"
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                                required>
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white">
                             @error('last_name')
                                 <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
