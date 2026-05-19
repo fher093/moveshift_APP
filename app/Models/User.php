@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
     /**
@@ -25,9 +25,8 @@ class User extends Authenticatable
         'phone',
         'zone',
         'career',
-        'microsoft_id',
         'avatar',
-        'last_login',
+        'role',
     ];
 
     /**
@@ -41,32 +40,51 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * The attributes that should be cast.
      *
-     * @return array<string, string>
+     * @var array<string, string>
      */
-    protected function casts(): array
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
+
+    /**
+     * Relaciones
+     */
+    public function trips(): HasMany
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'last_login' => 'datetime',
-        ];
+        return $this->hasMany(Trip::class, 'driver_id');
+    }
+
+    public function tripRequests(): HasMany
+    {
+        return $this->hasMany(TripRequest::class, 'passenger_id');
+    }
+
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class, 'from_user_id');
+    }
+
+    public function receivedRatings(): HasMany
+    {
+        return $this->hasMany(Rating::class, 'to_user_id');
     }
 
     /**
-     * Get the full name of the user.
+     * Obtener promedio de calificaciones
      */
-    public function getFullNameAttribute(): string
+    public function getAverageRating()
     {
-        return "{$this->name} {$this->last_name}";
+        return $this->receivedRatings()->avg('rating') ?? 0;
     }
 
     /**
-     * Verify if user has institutional email.
+     * Obtener número total de calificaciones
      */
-    public function hasInstitutionalEmail(): bool
+    public function getTotalRatings()
     {
-        return str_ends_with($this->email, '@uta.edu.ec');
+        return $this->receivedRatings()->count();
     }
 }

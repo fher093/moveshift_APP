@@ -1,59 +1,43 @@
 <?php
 
-use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route; 
-use App\Http\Controllers\Auth\RegisteredUserController;
-
+use App\Http\Controllers\DashboardController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-// ===== RUTAS DE AUTENTICACIÓN CON MICROSOFT =====
 Route::middleware('guest')->group(function () {
-    Route::get('/auth/microsoft', [MicrosoftController::class, 'redirect'])
-        ->name('auth.microsoft');
-    Route::get('/auth/callback/microsoft', [MicrosoftController::class, 'callback'])
-        ->name('auth.microsoft.callback');
+    Route::get('/verify-email', [App\Http\Controllers\Auth\RegisteredUserController::class, 'showVerifyEmail'])->name('auth.verify-email');
+    Route::post('/verify-email', [App\Http\Controllers\Auth\RegisteredUserController::class, 'verifyEmail'])->name('auth.verify-email.store');
+    Route::post('/resend-code', [App\Http\Controllers\Auth\RegisteredUserController::class, 'resendCode'])->name('auth.resend-code');
+    Route::get('/register', [App\Http\Controllers\Auth\RegisteredUserController::class, 'create'])->name('register');
+    Route::post('/register', [App\Http\Controllers\Auth\RegisteredUserController::class, 'store']);
+    Route::get('/auth/microsoft', [App\Http\Controllers\Auth\MicrosoftController::class, 'redirect'])->name('auth.microsoft');
+    Route::get('/auth/callback/microsoft', [App\Http\Controllers\Auth\MicrosoftController::class, 'callback'])->name('auth.microsoft.callback');
 });
 
-// ===== RUTAS PROTEGIDAS DE PERFIL =====
 Route::middleware('auth')->group(function () {
-    Route::get('/profile/edit', [ProfileController::class, 'edit'])
-        ->name('profile.edit');
-    Route::patch('/profile/update', [ProfileController::class, 'update'])
-        ->name('profile.update');
-    Route::patch('/profile/password', [ProfileController::class, 'changePassword'])
-        ->name('profile.password');
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dashboard/switch-role', [DashboardController::class, 'switchRole'])->name('dashboard.switch-role');
+
+    // Trips Management
+    Route::get('/trips/create', [DashboardController::class, 'createTrip'])->name('trips.create');
+    Route::post('/trips', [DashboardController::class, 'storeTrip'])->name('trips.store');
+    Route::post('/trips/{trip}/request', [DashboardController::class, 'requestTrip'])->name('trips.request');
+    Route::post('/trips/{tripRequestId}/accept', [DashboardController::class, 'acceptRequest'])->name('trips.accept-request');
+    Route::post('/trips/{tripRequestId}/reject', [DashboardController::class, 'rejectRequest'])->name('trips.reject-request');
+    
+    // Ratings & Reviews
+    Route::get('/trips/{trip}/rate', [DashboardController::class, 'rateTrip'])->name('trips.rate');
+    Route::post('/trips/{trip}/rating', [DashboardController::class, 'submitRating'])->name('trips.submit-rating');
+
+    // Profile
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
 });
 
-// Registro con verificación
-Route::middleware('guest')->group(function () {
-    // Mostrar registro
-    Route::get('/register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-    
-    // Guardar datos y enviar código
-    Route::post('/register', [RegisteredUserController::class, 'store']);
-    
-    // Mostrar verificación
-    Route::get('/verify-email', [RegisteredUserController::class, 'showVerifyEmail'])
-        ->name('auth.verify-email');
-    
-    // Verificar código y crear usuario
-    Route::post('/verify-email', [RegisteredUserController::class, 'verifyEmail'])
-        ->name('auth.verify-email.store');
-    
-    // Reenviar código
-    Route::post('/resend-code', [RegisteredUserController::class, 'resendCode'])
-        ->name('auth.resend-code');
-});
-
-
-// ===== RUTAS DE AUTENTICACIÓN (LOGIN, REGISTRO, etc) =====
 require __DIR__.'/auth.php';
