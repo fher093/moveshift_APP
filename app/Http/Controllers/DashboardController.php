@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Trip;
 use App\Models\TripRequest;
 use App\Models\Rating;
+use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -36,7 +37,7 @@ class DashboardController extends Controller
         // Viajes activos del conductor
         $activeTrips = Trip::where('driver_id', $user->id)
             ->where('status', 'active')
-            ->with('requests.passenger')
+            ->with('requests.passenger', 'vehicle')
             ->latest('departure_time')
             ->get();
 
@@ -56,7 +57,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return view('dashboard.driver', compact('activeTrips', 'pendingRequests', 'completedTrips'));
+        // Vehículos del conductor
+        $vehicles = $user->vehicles()->get();
+        $activeVehicle = $user->activeVehicle();
+
+        return view('dashboard.driver', compact('activeTrips', 'pendingRequests', 'completedTrips', 'vehicles', 'activeVehicle'));
     }
 
     /**
@@ -69,7 +74,7 @@ class DashboardController extends Controller
         // Búsqueda y filtrado de viajes
         $query = Trip::where('status', 'active')
             ->where('available_seats', '>', 0)
-            ->with('driver');
+            ->with('driver', 'vehicle');
 
         // Filtros
         if (request('origin_zone')) {
@@ -88,14 +93,14 @@ class DashboardController extends Controller
 
         // Mis solicitudes de viaje
         $myRequests = TripRequest::where('passenger_id', $user->id)
-            ->with('trip.driver')
+            ->with('trip.driver', 'trip.vehicle')
             ->latest()
             ->get();
 
         // Mis viajes confirmados
         $confirmedTrips = TripRequest::where('passenger_id', $user->id)
             ->where('status', 'accepted')
-            ->with('trip.driver')
+            ->with('trip.driver', 'trip.vehicle')
             ->latest()
             ->get();
 
@@ -107,7 +112,11 @@ class DashboardController extends Controller
      */
     public function createTrip(): View
     {
-        return view('trips.create');
+        $user = auth()->user();
+        $vehicles = $user->vehicles()->get();
+        $activeVehicle = $user->activeVehicle();
+
+        return view('trips.create', compact('vehicles', 'activeVehicle'));
     }
 
     public function storeTrip(Request $request): RedirectResponse
@@ -117,8 +126,16 @@ class DashboardController extends Controller
             'destination_zone' => 'required|string|max:255',
             'departure_time' => 'required|date|after:now',
             'total_seats' => 'required|integer|min:1|max:8',
+            'price' => 'required|numeric|min:0|max:999.99',
+            'vehicle_id' => 'required|exists:vehicles,id',
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        // Verificar que el vehículo le pertenece al conductor
+        $vehicle = Vehicle::findOrFail($validated['vehicle_id']);
+        if ($vehicle->driver_id !== auth()->id()) {
+            return back()->with('error', 'Este vehículo no te pertenece');
+        }
 
         $validated['driver_id'] = auth()->id();
         $validated['available_seats'] = $validated['total_seats'];
@@ -154,45 +171,107 @@ class DashboardController extends Controller
         return back()->with('success', 'Solicitud enviada al conductor');
     }
 
-/**
- * RF6: Gestionar solicitudes (aceptar/rechazar)
- */
-public function acceptRequest($tripRequestId): RedirectResponse
-{
-    $tripRequest = TripRequest::findOrFail($tripRequestId);
-    $trip = $tripRequest->trip;
+    /**
+     * RF6: Gestionar solicitudes (aceptar/rechazar)
+     */
+    public function acceptRequest($tripRequestId): RedirectResponse
+    {
+        $tripRequest = TripRequest::findOrFail($tripRequestId);
+        $trip = $tripRequest->trip;
 
-    // Verificar que el usuario es el conductor
-    if ($trip->driver_id !== auth()->id()) {
-        return back()->with('error', 'No autorizado');
+        // Verificar que el usuario es el conductor
+        if ($trip->driver_id !== auth()->id()) {
+            return back()->with('error', 'No autorizado');
+        }
+
+        // Verificar disponibilidad
+        if ($trip->available_seats <= 0) {
+            return back()->with('error', 'No hay asientos disponibles');
+        }
+
+        // Aceptar solicitud
+        $tripRequest->update(['status' => 'accepted']);
+        $trip->decrement('available_seats');
+
+        return back()->with('success', 'Solicitud aceptada');
     }
 
-    // Verificar disponibilidad
-    if ($trip->available_seats <= 0) {
-        return back()->with('error', 'No hay asientos disponibles');
+    public function rejectRequest($tripRequestId): RedirectResponse
+    {
+        $tripRequest = TripRequest::findOrFail($tripRequestId);
+        $trip = $tripRequest->trip;
+
+        // Verificar que el usuario es el conductor
+        if ($trip->driver_id !== auth()->id()) {
+            return back()->with('error', 'No autorizado');
+        }
+
+        $tripRequest->update(['status' => 'rejected']);
+
+        return back()->with('success', 'Solicitud rechazada');
     }
 
-    // Aceptar solicitud
-    $tripRequest->update(['status' => 'accepted']);
-    $trip->decrement('available_seats');
+    /**
+     * Crear/Editar vehículo
+     */
+    public function storeVehicle(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'brand' => 'required|string|max:255',
+            'model' => 'required|string|max:255',
+            'plate' => 'required|string|max:20|unique:vehicles,plate',
+            'color' => 'required|string|max:255',
+            'vehicle_id' => 'nullable|exists:vehicles,id',
+        ]);
 
-    return back()->with('success', 'Solicitud aceptada');
-}
+        $user = auth()->user();
 
-public function rejectRequest($tripRequestId): RedirectResponse
-{
-    $tripRequest = TripRequest::findOrFail($tripRequestId);
-    $trip = $tripRequest->trip;
+        // Si se envía vehicle_id, es una edición
+        if ($request->input('vehicle_id')) {
+            $vehicle = Vehicle::findOrFail($request->input('vehicle_id'));
+            
+            // Verificar que le pertenece al conductor
+            if ($vehicle->driver_id !== $user->id) {
+                return back()->with('error', 'No autorizado');
+            }
 
-    // Verificar que el usuario es el conductor
-    if ($trip->driver_id !== auth()->id()) {
-        return back()->with('error', 'No autorizado');
+            $vehicle->update($validated);
+            return back()->with('success', 'Vehículo actualizado exitosamente');
+        }
+
+        // Si no, es un nuevo vehículo
+        // Desactivar vehículos anteriores
+        $user->vehicles()->update(['is_active' => false]);
+
+        // Crear nuevo vehículo
+        $validated['driver_id'] = $user->id;
+        $validated['is_active'] = true;
+        Vehicle::create($validated);
+
+        return back()->with('success', 'Vehículo registrado exitosamente');
     }
 
-    $tripRequest->update(['status' => 'rejected']);
+    /**
+     * Cambiar vehículo activo
+     */
+    public function switchVehicle($vehicleId): RedirectResponse
+    {
+        $user = auth()->user();
+        $vehicle = Vehicle::findOrFail($vehicleId);
 
-    return back()->with('success', 'Solicitud rechazada');
-}
+        // Verificar que le pertenece al conductor
+        if ($vehicle->driver_id !== $user->id) {
+            return back()->with('error', 'No autorizado');
+        }
+
+        // Desactivar todos
+        $user->vehicles()->update(['is_active' => false]);
+
+        // Activar el seleccionado
+        $vehicle->update(['is_active' => true]);
+
+        return back()->with('success', 'Vehículo activado exitosamente');
+    }
 
     /**
      * RF8: Calificar viaje

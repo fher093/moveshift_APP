@@ -30,6 +30,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/trips/{tripRequestId}/accept', [DashboardController::class, 'acceptRequest'])->name('trips.accept-request');
     Route::post('/trips/{tripRequestId}/reject', [DashboardController::class, 'rejectRequest'])->name('trips.reject-request');
     
+    // Vehicle Management
+    Route::post('/vehicles', [DashboardController::class, 'storeVehicle'])->name('vehicles.store');
+    Route::post('/vehicles/{vehicleId}/switch', [DashboardController::class, 'switchVehicle'])->name('vehicles.switch');
+
     // Ratings & Reviews
     Route::get('/trips/{trip}/rate', [DashboardController::class, 'rateTrip'])->name('trips.rate');
     Route::post('/trips/{trip}/rating', [DashboardController::class, 'submitRating'])->name('trips.submit-rating');
@@ -37,7 +41,12 @@ Route::middleware('auth')->group(function () {
     // Profile
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
-    Route::patch('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
+    Route::patch('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password'); 
+
+    // API Routes para Mapas
+    Route::get('/api/trips/active', [\App\Http\Controllers\MapController::class, 'getActiveTrips']);
+    Route::get('/api/geocode', [\App\Http\Controllers\MapController::class, 'geocode']);
+    Route::get('/api/directions', [\App\Http\Controllers\MapController::class, 'getDirections']);
 });
 
 require __DIR__.'/auth.php';
