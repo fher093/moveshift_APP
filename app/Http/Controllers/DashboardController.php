@@ -338,5 +338,16 @@ class DashboardController extends Controller
         $user->save();
 
         return redirect()->route('dashboard')->with('success', 'Rol cambiado exitosamente');
+    } 
+    public function completeTrip(\App\Models\Trip $trip)
+    {
+    // Verificamos que el usuario logueado sea realmente el conductor de ese viaje
+    if ($trip->driver_id === auth()->id()) {
+        $trip->update([
+            'status' => 'completed'
+        ]);
+    }
+
+    return redirect()->back()->with('success', 'Viaje finalizado exitosamente.');
     }
 }

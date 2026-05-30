@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="bg-gray-900 pt-8 pb-16 border-b border-gray-800 font-sans">
+    <div class="bg-gray-900 pt-8 pb-8 border-b border-gray-800 font-sans">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-end">
             <div>
                 <h1 class="text-3xl font-black tracking-tight text-white">Panel de Conductor</h1>
@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <div class="pb-12 bg-gray-50 min-h-screen font-sans">
+    <div class="pt-16 pb-12 bg-gray-50 min-h-screen font-sans">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 space-y-8">
             
             <section>
@@ -156,7 +156,7 @@
                 @else
                     <div class="space-y-6">
                         @foreach($activeTrips as $trip)
-                            <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                            <div id="trip-card-{{ $trip->id }}" class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm transition-all duration-300">
                                 <div class="p-6 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
                                         <div class="flex items-center gap-3 mb-2">
@@ -201,11 +201,15 @@
                                     </div>
                                 @endif
 
-                                <div class="p-6 flex flex-col sm:flex-row gap-3">
+                                                                <div class="p-6 flex flex-col sm:flex-row gap-3">
                                     <button onclick="showTripRouteDriver('{{ $trip->origin_zone }}', '{{ $trip->destination_zone }}')" class="flex-1 bg-gray-50 text-gray-700 border border-gray-200 font-bold py-3.5 px-4 rounded-xl hover:bg-gray-100 transition">
                                         Ver Ruta
                                     </button>
-                                    <button class="flex-1 bg-teal-600 text-white border border-teal-700 font-bold py-3.5 px-4 rounded-xl hover:bg-teal-700 transition shadow-sm">
+                                    
+                                    <form id="complete-trip-form-{{ $trip->id }}" action="{{ route('trips.complete', $trip) }}" method="POST" class="hidden">
+                                        @csrf
+                                    </form>
+                                    <button type="button" onclick="finishTrip({{ $trip->id }})" class="flex-1 bg-teal-600 text-white border border-teal-700 font-bold py-3.5 px-4 rounded-xl hover:bg-teal-700 transition shadow-sm">
                                         Finalizar y Cobrar
                                     </button>
                                 </div>
@@ -239,9 +243,34 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
     <script>
+    // NUEVA FUNCIÓN PARA FINALIZAR VIAJE
+    // NUEVA FUNCIÓN PARA FINALIZAR VIAJE REAL
+function finishTrip(tripId) {
+    Swal.fire({
+        title: '¡Viaje Completado!',
+        text: 'Recuerda realizar el cobro directamente con tus pasajeros en efectivo.',
+        icon: 'success',
+        iconColor: '#0D9488',
+        confirmButtonText: 'Confirmar',
+        confirmButtonColor: '#0D9488',
+        customClass: {
+            popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+            title: 'font-black text-gray-900',
+            confirmButton: 'font-bold py-3 px-8 rounded-xl text-white'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Ya no lo ocultamos visualmente, enviamos el formulario al servidor
+            document.getElementById('complete-trip-form-' + tripId).submit();
+        }
+    });
+}
+
     function toggleVehicleForm() {
         const form = document.getElementById('vehicleForm');
         const title = document.getElementById('formTitle');
@@ -255,6 +284,7 @@
             title.textContent = 'Registrar Vehículo';
         }
     }
+    
     function editVehicle(id, brand, model, plate, color) {
         const form = document.getElementById('vehicleForm');
         const title = document.getElementById('formTitle');

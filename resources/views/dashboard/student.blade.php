@@ -1,11 +1,15 @@
 <x-app-layout>
-    <div class="bg-gray-900 pt-8 pb-16 border-b border-gray-800 font-sans">
+    <div class="bg-gray-900 pt-8 pb-24 border-b border-gray-800 font-sans">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
                 <h1 class="text-3xl font-black tracking-tight text-white">Explorar Viajes</h1>
                 <p class="text-sm text-gray-400 mt-1">Encuentra tu próxima ruta al campus o a casa.</p>
             </div>
-            <div class="mt-4 sm:mt-0">
+            <div class="mt-4 sm:mt-0 flex items-center gap-3">
+                <button type="button" onclick="showRatingModal(1, 'Conductor de Prueba')" class="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-xs font-bold transition shadow-sm">
+                    Ver Modal de Calificación
+                </button>
+
                 <form action="{{ route('dashboard.switch-role') }}" method="POST">
                     @csrf
                     <button type="submit" class="px-5 py-2.5 bg-white text-gray-900 rounded-lg hover:bg-gray-200 text-sm font-bold transition flex items-center gap-2 shadow-sm">
@@ -18,7 +22,7 @@
     </div>
 
     <div class="pb-12 bg-gray-50 min-h-screen font-sans">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 grid grid-cols-1 lg:grid-cols-12 gap-8">
             
             <div class="lg:col-span-3">
                 <div class="sticky top-6">
@@ -32,11 +36,31 @@
                         <div class="space-y-4">
                             @foreach($confirmedTrips as $request)
                                 <div class="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-gray-300 transition group cursor-pointer" data-trip-id="{{ $request->trip->id }}">
-                                    <p class="font-bold text-base text-gray-900 leading-tight">{{ $request->trip->origin_zone }}</p>
+                                    
+                                    <div class="flex justify-between items-start mb-1">
+                                        <p class="font-bold text-base text-gray-900 leading-tight">{{ $request->trip->origin_zone }}</p>
+                                        
+                                        @php
+                                            $tripStatus = $request->trip->status;
+                                            $isPast = $request->trip->departure_time->isPast();
+                                        @endphp
+
+                                        @if($tripStatus === 'completed')
+                                            <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Finalizado</span>
+                                        @elseif($tripStatus === 'active' && $isPast)
+                                            <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>En curso
+                                            </span>
+                                        @else
+                                            <span class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">En espera</span>
+                                        @endif
+                                    </div>
+
                                     <div class="py-2 text-gray-400">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
                                     </div>
                                     <p class="font-bold text-base text-gray-900">{{ $request->trip->destination_zone }}</p>
+                                    
                                     <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
                                         <div>
                                             <p class="text-xs font-bold text-gray-800">{{ $request->trip->driver->name }}</p>
@@ -90,14 +114,14 @@
                                     
                                     <div class="flex items-center gap-4">
                                         @if($trip->driver->avatar)
-                                            <img src="/storage/{{ $trip->driver->avatar }}" alt="Avatar" class="h-12 w-12 rounded-full object-cover border border-gray-200 shadow-sm">
+                                            <img src="{{ asset('storage/' . $trip->driver->avatar) }}" alt="Avatar" class="h-12 w-12 rounded-full object-cover border border-gray-200 shadow-sm">
                                         @else
                                             <div class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-700 border border-gray-200 shadow-sm">
                                                 {{ substr($trip->driver->name, 0, 1) }}
                                             </div>
                                         @endif
                                         <div>
-                                            <div class="flex items-center gap-2 mb-1">
+                                            <div class="flex items-center flex-wrap gap-2 mb-1">
                                                 <p class="font-black text-lg text-gray-900">{{ $trip->origin_zone }}</p>
                                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                                                 <p class="font-black text-lg text-gray-900">{{ $trip->destination_zone }}</p>
@@ -130,16 +154,26 @@
                                             $hasRequested = $myRequests->contains(function($req) use ($trip) {
                                                 return $req->trip_id === $trip->id && $req->status !== 'rejected';
                                             });
+                                            $tripStatus = $trip->status;
+                                            $isPast = $trip->departure_time->isPast();
                                         @endphp
 
-                                        @if($hasRequested)
+                                        @if($tripStatus === 'completed')
+                                            <button disabled class="bg-gray-100 text-gray-500 font-bold py-3 px-6 rounded-xl cursor-not-allowed border border-gray-200 shadow-sm">
+                                                Finalizado
+                                            </button>
+                                        @elseif($tripStatus === 'active' && $isPast)
+                                            <button disabled class="bg-emerald-50 text-emerald-600 font-bold py-3 px-6 rounded-xl cursor-not-allowed border border-emerald-200 shadow-sm flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> En curso
+                                            </button>
+                                        @elseif($hasRequested)
                                             <button disabled class="bg-amber-50 text-amber-700 font-bold py-3 px-6 rounded-xl cursor-not-allowed border border-amber-200 shadow-sm">
                                                 En espera
                                             </button>
                                         @else
                                             <form action="{{ route('trips.request', $trip) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" class="bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-emerald-700 transition shadow-sm border border-emerald-700">
+                                                <button type="submit" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-blue-700 transition shadow-sm border border-blue-700">
                                                     Reservar
                                                 </button>
                                             </form>
@@ -159,13 +193,40 @@
                         Notificaciones
                     </h3>
                     
-                    @if($myRequests->where('status', 'pending')->isEmpty())
+                    @php
+                        $pendingRequestsList = $myRequests->where('status', 'pending');
+                        $urgentTripsList = $confirmedTrips->filter(function($req) {
+                                $mins = round(now()->diffInMinutes($req->trip->departure_time, false));
+                                return $mins >= 0 && $mins <= 5;
+                        });
+                    @endphp
+
+                    @if($pendingRequestsList->isEmpty() && $urgentTripsList->isEmpty())
                         <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
                             <p class="text-sm text-gray-500">Todo al día</p>
                         </div>
                     @else
                         <div class="space-y-3">
-                            @foreach($myRequests->where('status', 'pending') as $request)
+                            @foreach($urgentTripsList as $urgentReq)
+                                @php
+                                    $mins = round(now()->diffInMinutes($urgentReq->trip->departure_time, false));
+                                    $timeText = $mins == 0 ? '¡En este momento!' : "en $mins minuto" . ($mins > 1 ? 's' : '');
+                                @endphp
+                                <div class="p-4 bg-white border border-amber-200 rounded-2xl shadow-sm relative overflow-hidden">
+                                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 animate-pulse"></div>
+                                    <div class="flex items-start gap-3 pl-2">
+                                        <div class="text-amber-500 mt-0.5">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
+                                        </div>
+                                        <div>
+                                            <p class="font-bold text-sm text-gray-900">¡Tu viaje está por salir!</p>
+                                            <p class="text-xs text-gray-600 mt-1">Hacia <strong>{{ $urgentReq->trip->destination_zone }}</strong> {{ $timeText }}.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+
+                            @foreach($pendingRequestsList as $request)
                                 <div class="p-4 bg-white border border-blue-100 rounded-2xl shadow-sm relative overflow-hidden">
                                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
                                     <div class="flex items-start gap-3 pl-2">
@@ -180,6 +241,7 @@
                     @endif
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -210,6 +272,112 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
     <script>
+        // ----------------------------------------------------
+        // LÓGICA DEL NUEVO MODAL DE CALIFICACIÓN / REPORTE
+        // ----------------------------------------------------
+        function showRatingModal(tripId, driverName) {
+            Swal.fire({
+                title: '¡Has llegado a tu destino!',
+                html: `
+                    <div class="text-left mt-2 font-sans">
+                        <p class="text-sm text-gray-500 mb-6 text-center">¿Cómo fue tu viaje con <strong class="text-gray-900">${driverName}</strong>?</p>
+                        
+                        <form id="rating-form-${tripId}" action="/trips/${tripId}/rating" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="rating" id="rating-value" value="5">
+                            
+                            <div class="flex justify-center gap-2 mb-6 cursor-pointer" id="star-container">
+                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="1">★</button>
+                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="2">★</button>
+                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="3">★</button>
+                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="4">★</button>
+                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="5">★</button>
+                            </div>
+
+                            <div id="report-section" class="hidden mb-4 transition-all">
+                                <label class="block text-xs font-bold text-red-600 uppercase mb-2 tracking-wider">Motivo del reporte / Crítica</label>
+                                <textarea name="comment" rows="3" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-red-500 focus:border-red-500 bg-gray-50" placeholder="Describe el problema que tuviste con el conductor..."></textarea>
+                            </div>
+
+                            <div class="text-center">
+                                <button type="button" id="btn-show-report" class="text-xs font-bold text-gray-400 hover:text-red-500 transition underline focus:outline-none">
+                                    Hubo un problema, quiero reportar al conductor
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar Calificación',
+                cancelButtonText: 'Omitir',
+                confirmButtonColor: '#0D9488', // Verde Teal
+                cancelButtonColor: '#9CA3AF', // Gris
+                allowOutsideClick: false, // Evita que se cierre haciendo click fuera
+                customClass: {
+                    popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                    title: 'font-black text-gray-900 text-2xl',
+                    confirmButton: 'font-bold py-3 px-6 rounded-xl text-white',
+                    cancelButton: 'font-bold py-3 px-6 rounded-xl text-white'
+                },
+                didOpen: () => {
+                    const stars = document.querySelectorAll('.star-btn');
+                    const ratingInput = document.getElementById('rating-value');
+                    const btnReport = document.getElementById('btn-show-report');
+                    const reportSection = document.getElementById('report-section');
+                    const confirmBtn = Swal.getConfirmButton();
+
+                    // Lógica para pintar las estrellas al dar clic
+                    stars.forEach(star => {
+                        star.addEventListener('click', (e) => {
+                            let value = e.target.getAttribute('data-value');
+                            ratingInput.value = value; // Guardar valor
+                            stars.forEach(s => {
+                                if(s.getAttribute('data-value') <= value) {
+                                    s.classList.add('text-yellow-400');
+                                    s.classList.remove('text-gray-300');
+                                } else {
+                                    s.classList.remove('text-yellow-400');
+                                    s.classList.add('text-gray-300');
+                                }
+                            });
+                        });
+                    });
+
+                    // Lógica al dar clic en Reportar
+                    btnReport.addEventListener('click', () => {
+                        reportSection.classList.remove('hidden'); // Mostrar Textarea
+                        btnReport.classList.add('hidden'); // Ocultar el botón de reporte
+                        
+                        ratingInput.value = 1; // Poner a 1 estrella automáticamente por la queja
+                        
+                        // Reflejar visualmente 1 estrella
+                        stars.forEach(s => {
+                            if(s.getAttribute('data-value') <= 1) {
+                                s.classList.add('text-yellow-400');
+                                s.classList.remove('text-gray-300');
+                            } else {
+                                s.classList.remove('text-yellow-400');
+                                s.classList.add('text-gray-300');
+                            }
+                        });
+                        
+                        // Cambiar el botón de Enviar a Modo Alerta (Rojo)
+                        confirmBtn.style.backgroundColor = '#DC2626'; 
+                        confirmBtn.textContent = 'Enviar Reporte';
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Enviar el formulario a Laravel
+                    document.getElementById('rating-form-' + tripId).submit();
+                }
+            });
+        }
+
+
+        // ----------------------------------------------------
+        // LÓGICA DE INFO DEL CONDUCTOR Y MAPAS
+        // ----------------------------------------------------
         function showDriverInfo(name, avatar, phone, brand, model, plate, color) {
             let avatarHtml = avatar 
                 ? `<img src="${avatar}" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md">`

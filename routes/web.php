@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/trips/{trip}/request', [DashboardController::class, 'requestTrip'])->name('trips.request');
     Route::post('/trips/{tripRequestId}/accept', [DashboardController::class, 'acceptRequest'])->name('trips.accept-request');
     Route::post('/trips/{tripRequestId}/reject', [DashboardController::class, 'rejectRequest'])->name('trips.reject-request');
-    
+    Route::post('/trips/{trip}/complete', [DashboardController::class, 'completeTrip'])->name('trips.complete');
     // Vehicle Management
     Route::post('/vehicles', [DashboardController::class, 'storeVehicle'])->name('vehicles.store');
     Route::post('/vehicles/{vehicleId}/switch', [DashboardController::class, 'switchVehicle'])->name('vehicles.switch');
