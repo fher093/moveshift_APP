@@ -22,6 +22,7 @@
     <div class="pt-16 pb-12 bg-gray-50 min-h-screen font-sans">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 space-y-8">
             
+            <!-- SECCIÓN VEHÍCULOS -->
             <section>
                 <div class="flex items-center justify-between mb-4 px-1">
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Mis Vehículos</h3>
@@ -97,6 +98,7 @@
                 </div>
             </section>
 
+            <!-- SECCIÓN SOLICITUDES PENDIENTES -->
             @if($pendingRequests->isNotEmpty())
                 <section>
                     <div class="flex items-center gap-3 mb-4 px-1">
@@ -146,6 +148,7 @@
                 </section>
             @endif
 
+            <!-- SECCIÓN RUTAS ACTIVAS -->
             <section>
                 <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 ml-1">Mis Rutas Activas</h3>
                 
@@ -201,13 +204,14 @@
                                     </div>
                                 @endif
 
-                                                                <div class="p-6 flex flex-col sm:flex-row gap-3">
+                                <div class="p-6 flex flex-col sm:flex-row gap-3">
                                     <button onclick="showTripRouteDriver('{{ $trip->origin_zone }}', '{{ $trip->destination_zone }}')" class="flex-1 bg-gray-50 text-gray-700 border border-gray-200 font-bold py-3.5 px-4 rounded-xl hover:bg-gray-100 transition">
                                         Ver Ruta
                                     </button>
                                     
                                     <form id="complete-trip-form-{{ $trip->id }}" action="{{ route('trips.complete', $trip) }}" method="POST" class="hidden">
                                         @csrf
+                                        <!-- AQUÍ SE AGREGARÁ EL TEXTAREA DINÁMICAMENTE SI HAY REPORTE -->
                                     </form>
                                     <button type="button" onclick="finishTrip({{ $trip->id }})" class="flex-1 bg-teal-600 text-white border border-teal-700 font-bold py-3.5 px-4 rounded-xl hover:bg-teal-700 transition shadow-sm">
                                         Finalizar y Cobrar
@@ -221,6 +225,7 @@
         </div>
     </div>
 
+    <!-- MODAL MAPA DRIVER -->
     <div id="routeModalDriver" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl">
             <div class="flex justify-between items-center mb-6">
@@ -243,34 +248,13 @@
         </div>
     </div>
 
+    <!-- SCRIPTS Y LIBRERÍAS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
     <script>
-    // NUEVA FUNCIÓN PARA FINALIZAR VIAJE
-    // NUEVA FUNCIÓN PARA FINALIZAR VIAJE REAL
-function finishTrip(tripId) {
-    Swal.fire({
-        title: '¡Viaje Completado!',
-        text: 'Recuerda realizar el cobro directamente con tus pasajeros en efectivo.',
-        icon: 'success',
-        iconColor: '#0D9488',
-        confirmButtonText: 'Confirmar',
-        confirmButtonColor: '#0D9488',
-        customClass: {
-            popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
-            title: 'font-black text-gray-900',
-            confirmButton: 'font-bold py-3 px-8 rounded-xl text-white'
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Ya no lo ocultamos visualmente, enviamos el formulario al servidor
-            document.getElementById('complete-trip-form-' + tripId).submit();
-        }
-    });
-}
-
+    // FUNCIONES BÁSICAS DE INTERFAZ
     function toggleVehicleForm() {
         const form = document.getElementById('vehicleForm');
         const title = document.getElementById('formTitle');
@@ -296,6 +280,80 @@ function finishTrip(tripId) {
         title.textContent = 'Editar Vehículo';
         form.classList.remove('hidden');
         form.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ====================================================
+    // LÓGICA FINALIZAR VIAJE CON REPORTE DEL CONDUCTOR
+    // ====================================================
+    function finishTrip(tripId) {
+        Swal.fire({
+            title: '¡Viaje Completado!',
+            html: `
+                <div class="text-left mt-2 font-sans">
+                    <p class="text-sm text-gray-600 mb-6 text-center">Recuerda realizar el cobro directamente con tus pasajeros en efectivo.</p>
+                    
+                    <div id="report-section-driver-${tripId}" class="hidden mb-4 transition-all">
+                        <label class="block text-xs font-bold text-red-600 uppercase mb-2 tracking-wider">Reportar una incidencia</label>
+                        <textarea id="driver-report-text-${tripId}" rows="3" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-red-500 focus:border-red-500 bg-gray-50" placeholder="Ej: Un pasajero tuvo mal comportamiento, dañó algo, no se presentó..."></textarea>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="button" id="btn-show-report-driver-${tripId}" class="text-xs font-bold text-gray-400 hover:text-red-500 transition underline focus:outline-none">
+                            Hubo un problema en el viaje, hacer un reporte
+                        </button>
+                    </div>
+                </div>
+            `,
+            icon: 'success',
+            iconColor: '#0D9488',
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar y Finalizar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#0D9488',
+            cancelButtonColor: '#9CA3AF',
+            customClass: {
+                popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                title: 'font-black text-gray-900 text-2xl',
+                confirmButton: 'font-bold py-3 px-6 rounded-xl text-white',
+                cancelButton: 'font-bold py-3 px-6 rounded-xl text-white'
+            },
+            didOpen: () => {
+                const btnReport = document.getElementById(`btn-show-report-driver-${tripId}`);
+                const reportSection = document.getElementById(`report-section-driver-${tripId}`);
+                const confirmBtn = Swal.getConfirmButton();
+                const icon = document.querySelector('.swal2-icon.swal2-success');
+
+                btnReport.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    reportSection.classList.remove('hidden');
+                    btnReport.classList.add('hidden');
+                    
+                    // Cambiamos a modo advertencia
+                    confirmBtn.style.backgroundColor = '#DC2626';
+                    confirmBtn.textContent = 'Finalizar y Enviar Reporte';
+                    
+                    if(icon) {
+                        icon.style.display = 'none'; // ocultamos el visto verde porque ahora es un reporte
+                    }
+                });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('complete-trip-form-' + tripId);
+                const reportText = document.getElementById(`driver-report-text-${tripId}`).value;
+                
+                // Si el conductor escribió algo, inyectamos el input en el formulario antes de enviarlo
+                if (reportText.trim() !== '') {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'driver_report';
+                    input.value = reportText;
+                    form.appendChild(input);
+                }
+                
+                form.submit();
+            }
+        });
     }
 
     let routeMapDriver; let routePolylineDriver = null;
@@ -324,5 +382,174 @@ function finishTrip(tripId) {
         }, 100);
     }
     function closeRouteModalDriver() { document.getElementById('routeModalDriver').classList.add('hidden'); }
-    </script>
+
+    // ====================================================
+    // POLLING COMPLETO PARA CONDUCTORES
+    // ====================================================
+    let seenDriverNotifications = {
+        new_requests: JSON.parse(localStorage.getItem('seen_driver_requests') || '[]'),
+        soon_trips: JSON.parse(localStorage.getItem('seen_driver_soon') || '[]'),
+        active_trips_updated: JSON.parse(localStorage.getItem('seen_driver_active') || '{}')
+    };
+    let driverPollingInterval = null;
+
+    function startDriverPolling() {
+        driverPollingInterval = setInterval(checkDriverNotifications, 3000);
+        checkDriverNotifications();
+    }
+
+    function checkDriverNotifications() {
+        fetch('/api/driver/notifications')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) return;
+
+                // Nuevas solicitudes
+                data.new_requests.forEach(notif => {
+                    if (!seenDriverNotifications.new_requests.includes(notif.request_id)) {
+                        showNewRequestAlert(notif);
+                        seenDriverNotifications.new_requests.push(notif.request_id);
+                        localStorage.setItem('seen_driver_requests', JSON.stringify(seenDriverNotifications.new_requests));
+                    }
+                });
+
+                // Viajes por partir
+                data.soon_trips.forEach(trip => {
+                    if (!seenDriverNotifications.soon_trips.includes(trip.trip_id)) {
+                        showSoonTripAlert(trip);
+                        seenDriverNotifications.soon_trips.push(trip.trip_id);
+                        localStorage.setItem('seen_driver_soon', JSON.stringify(seenDriverNotifications.soon_trips));
+                    }
+                });
+
+                // Cambios en viajes activos
+                data.active_trips.forEach(trip => {
+                    let key = `trip-${trip.trip_id}`;
+                    if (!seenDriverNotifications.active_trips_updated[key]) {
+                        seenDriverNotifications.active_trips_updated[key] = {
+                            passengers: trip.passengers_accepted,
+                            available: trip.available_seats
+                        };
+                    } else {
+                        if (trip.passengers_accepted > seenDriverNotifications.active_trips_updated[key].passengers) {
+                            showNewPassengerAlert(trip);
+                        }
+                    }
+                    seenDriverNotifications.active_trips_updated[key] = {
+                        passengers: trip.passengers_accepted,
+                        available: trip.available_seats
+                    };
+                    localStorage.setItem('seen_driver_active', JSON.stringify(seenDriverNotifications.active_trips_updated));
+                });
+            })
+            .catch(error => console.error('Driver polling error:', error));
+    }
+
+    function showNewRequestAlert(notif) {
+        Swal.fire({
+            title: '📲 Nueva Solicitud',
+            html: `
+                <div class="text-left mt-2 font-sans">
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-4">
+                        <p class="text-lg font-black text-blue-900">${notif.passenger}</p>
+                        <p class="text-xs font-bold text-blue-600 uppercase mt-2">Solicita ir a</p>
+                        <p class="text-base font-bold text-blue-800">${notif.destination}</p>
+                    </div>
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Ver solicitud',
+            cancelButtonText: 'Después',
+            showCancelButton: true,
+            confirmButtonColor: '#0284C7',
+            cancelButtonColor: '#9CA3AF',
+            customClass: {
+                popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                title: 'font-black text-gray-900'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = window.location.href; 
+            }
+        });
+    }
+
+    function showSoonTripAlert(trip) {
+        Swal.fire({
+            title: '🚗 ¡Viaje por partir!',
+            html: `
+                <div class="text-left mt-2 font-sans">
+                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                        <p class="text-sm text-amber-900">
+                            <strong>${trip.origin}</strong> → <strong>${trip.destination}</strong>
+                        </p>
+                        <p class="text-xs font-bold text-amber-600 uppercase mt-3">Pasajeros a bordo</p>
+                        <p class="text-2xl font-black text-amber-700">${trip.passengers_accepted}/${trip.passengers_accepted + trip.available_seats}</p>
+                    </div>
+                </div>
+            `,
+            icon: 'warning',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#D97706',
+            customClass: {
+                popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                title: 'font-black text-gray-900'
+            }
+        });
+    }
+
+    function showNewPassengerAlert(trip) {
+        Swal.fire({
+            title: '✅ Nuevo Pasajero Confirmado',
+            html: `
+                <div class="text-left mt-2 font-sans">
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                        <p class="text-sm text-emerald-900 mb-3">
+                            <strong>${trip.destination}</strong>
+                        </p>
+                        <p class="text-xs font-bold text-emerald-600 uppercase">Ocupación actual</p>
+                        <p class="text-2xl font-black text-emerald-700">${trip.passengers_accepted} / ${trip.passengers_accepted + trip.available_seats}</p>
+                        <p class="text-xs font-bold text-emerald-600 uppercase mt-3">${trip.available_seats} plaza(s) disponible(s)</p>
+                    </div>
+                </div>
+            `,
+            icon: 'success',
+            confirmButtonText: 'Ok',
+            confirmButtonColor: '#0D9488',
+            customClass: {
+                popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                title: 'font-black text-gray-900'
+            },
+            timer: 4000,
+            timerProgressBar: true
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        startDriverPolling();
+    });
+
+    window.addEventListener('beforeunload', function() {
+        if (driverPollingInterval) clearInterval(driverPollingInterval);
+    });
+    </script> 
+    @if(session('sweet_warning'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    title: '¡Advertencia Oficial!',
+                    text: '{{ session('sweet_warning') }}',
+                    icon: 'error', // Icono rojo
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#DC2626', // Rojo
+                    allowOutsideClick: false,
+                    customClass: {
+                        popup: 'rounded-3xl border border-red-100 shadow-2xl font-sans',
+                        title: 'font-black text-red-600',
+                        confirmButton: 'font-bold py-3 px-6 rounded-xl text-white'
+                    }
+                });
+            });
+        </script>
+    @endif
 </x-app-layout>

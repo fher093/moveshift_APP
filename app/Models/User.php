@@ -22,6 +22,8 @@ class User extends Authenticatable
         'zone',
         'career',
         'last_name',
+        'account_status', 
+        'suspended_until',
     ];
 
     protected $hidden = [
@@ -32,6 +34,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'suspended_until' => 'datetime',
+        
     ];
 
     /**
@@ -72,5 +76,13 @@ class User extends Authenticatable
     public function activeVehicle()
     {
         return $this->vehicles()->where('is_active', true)->first();
+    } 
+
+    /**
+     * Relación con las calificaciones que el usuario ha recibido
+     */
+    public function ratingsReceived(): HasMany
+    {
+        return $this->hasMany(Rating::class, 'to_user_id');
     }
 }

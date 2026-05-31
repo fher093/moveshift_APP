@@ -1,14 +1,15 @@
 <x-app-layout>
-    <div class="bg-gray-900 pt-8 pb-24 border-b border-gray-800 font-sans">
+    <!-- Cabecera Oscura -->
+    <div class="bg-gray-900 pt-8 pb-8 border-b border-gray-800 font-sans">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
                 <h1 class="text-3xl font-black tracking-tight text-white">Explorar Viajes</h1>
                 <p class="text-sm text-gray-400 mt-1">Encuentra tu próxima ruta al campus o a casa.</p>
             </div>
             <div class="mt-4 sm:mt-0 flex items-center gap-3">
-                <button type="button" onclick="showRatingModal(1, 'Conductor de Prueba')" class="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-xs font-bold transition shadow-sm">
-                    Ver Modal de Calificación
-                </button>
+                
+                <!-- BOTÓN DE PRUEBA: Modal de Calificación -->
+                
 
                 <form action="{{ route('dashboard.switch-role') }}" method="POST">
                     @csrf
@@ -21,9 +22,11 @@
         </div>
     </div>
 
-    <div class="pb-12 bg-gray-50 min-h-screen font-sans">
+    <!-- Contenido Claro -->
+    <div class="pt-16 pb-4 bg-gray-50 min-h-screen font-sans">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 grid grid-cols-1 lg:grid-cols-12 gap-8">
             
+            <!-- Sidebar Izquierdo: Próximos Viajes -->
             <div class="lg:col-span-3">
                 <div class="sticky top-6">
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 ml-1">Próximos Viajes</h3>
@@ -77,7 +80,9 @@
                 </div>
             </div>
 
+            <!-- Centro: Buscador y Resultados -->
             <div class="lg:col-span-6">
+                <!-- Buscador -->
                 <div class="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
                     <form method="GET" action="{{ route('dashboard') }}" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
@@ -100,6 +105,7 @@
                     </form>
                 </div>
 
+                <!-- Resultados: Disponibles Hoy -->
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 ml-1">Disponibles Hoy</h3>
                     
@@ -158,6 +164,7 @@
                                             $isPast = $trip->departure_time->isPast();
                                         @endphp
 
+                                        <!-- BOTÓN DE ACCIÓN / ESTADO -->
                                         @if($tripStatus === 'completed')
                                             <button disabled class="bg-gray-100 text-gray-500 font-bold py-3 px-6 rounded-xl cursor-not-allowed border border-gray-200 shadow-sm">
                                                 Finalizado
@@ -186,6 +193,7 @@
                 </div>
             </div>
 
+            <!-- Sidebar Derecho: Notificaciones -->
             <div class="lg:col-span-3">
                 <div class="sticky top-6">
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 ml-1 flex items-center gap-2">
@@ -245,6 +253,7 @@
         </div>
     </div>
 
+    <!-- Modal Mapa Leaflet -->
     <div id="routeModal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl">
             <div class="flex justify-between items-center mb-6">
@@ -267,116 +276,14 @@
         </div>
     </div>
 
+    <!-- Scripts y Librerías -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
     <script>
         // ----------------------------------------------------
-        // LÓGICA DEL NUEVO MODAL DE CALIFICACIÓN / REPORTE
-        // ----------------------------------------------------
-        function showRatingModal(tripId, driverName) {
-            Swal.fire({
-                title: '¡Has llegado a tu destino!',
-                html: `
-                    <div class="text-left mt-2 font-sans">
-                        <p class="text-sm text-gray-500 mb-6 text-center">¿Cómo fue tu viaje con <strong class="text-gray-900">${driverName}</strong>?</p>
-                        
-                        <form id="rating-form-${tripId}" action="/trips/${tripId}/rating" method="POST">
-                            <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="rating" id="rating-value" value="5">
-                            
-                            <div class="flex justify-center gap-2 mb-6 cursor-pointer" id="star-container">
-                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="1">★</button>
-                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="2">★</button>
-                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="3">★</button>
-                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="4">★</button>
-                                <button type="button" class="star-btn text-yellow-400 text-4xl hover:scale-110 transition" data-value="5">★</button>
-                            </div>
-
-                            <div id="report-section" class="hidden mb-4 transition-all">
-                                <label class="block text-xs font-bold text-red-600 uppercase mb-2 tracking-wider">Motivo del reporte / Crítica</label>
-                                <textarea name="comment" rows="3" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-red-500 focus:border-red-500 bg-gray-50" placeholder="Describe el problema que tuviste con el conductor..."></textarea>
-                            </div>
-
-                            <div class="text-center">
-                                <button type="button" id="btn-show-report" class="text-xs font-bold text-gray-400 hover:text-red-500 transition underline focus:outline-none">
-                                    Hubo un problema, quiero reportar al conductor
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'Enviar Calificación',
-                cancelButtonText: 'Omitir',
-                confirmButtonColor: '#0D9488', // Verde Teal
-                cancelButtonColor: '#9CA3AF', // Gris
-                allowOutsideClick: false, // Evita que se cierre haciendo click fuera
-                customClass: {
-                    popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
-                    title: 'font-black text-gray-900 text-2xl',
-                    confirmButton: 'font-bold py-3 px-6 rounded-xl text-white',
-                    cancelButton: 'font-bold py-3 px-6 rounded-xl text-white'
-                },
-                didOpen: () => {
-                    const stars = document.querySelectorAll('.star-btn');
-                    const ratingInput = document.getElementById('rating-value');
-                    const btnReport = document.getElementById('btn-show-report');
-                    const reportSection = document.getElementById('report-section');
-                    const confirmBtn = Swal.getConfirmButton();
-
-                    // Lógica para pintar las estrellas al dar clic
-                    stars.forEach(star => {
-                        star.addEventListener('click', (e) => {
-                            let value = e.target.getAttribute('data-value');
-                            ratingInput.value = value; // Guardar valor
-                            stars.forEach(s => {
-                                if(s.getAttribute('data-value') <= value) {
-                                    s.classList.add('text-yellow-400');
-                                    s.classList.remove('text-gray-300');
-                                } else {
-                                    s.classList.remove('text-yellow-400');
-                                    s.classList.add('text-gray-300');
-                                }
-                            });
-                        });
-                    });
-
-                    // Lógica al dar clic en Reportar
-                    btnReport.addEventListener('click', () => {
-                        reportSection.classList.remove('hidden'); // Mostrar Textarea
-                        btnReport.classList.add('hidden'); // Ocultar el botón de reporte
-                        
-                        ratingInput.value = 1; // Poner a 1 estrella automáticamente por la queja
-                        
-                        // Reflejar visualmente 1 estrella
-                        stars.forEach(s => {
-                            if(s.getAttribute('data-value') <= 1) {
-                                s.classList.add('text-yellow-400');
-                                s.classList.remove('text-gray-300');
-                            } else {
-                                s.classList.remove('text-yellow-400');
-                                s.classList.add('text-gray-300');
-                            }
-                        });
-                        
-                        // Cambiar el botón de Enviar a Modo Alerta (Rojo)
-                        confirmBtn.style.backgroundColor = '#DC2626'; 
-                        confirmBtn.textContent = 'Enviar Reporte';
-                    });
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Enviar el formulario a Laravel
-                    document.getElementById('rating-form-' + tripId).submit();
-                }
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // LÓGICA DE INFO DEL CONDUCTOR Y MAPAS
+        // LÓGICA DE MAPAS E INFO CONDUCTOR
         // ----------------------------------------------------
         function showDriverInfo(name, avatar, phone, brand, model, plate, color) {
             let avatarHtml = avatar 
@@ -448,5 +355,244 @@
             }, 100);
         }
         function closeRouteModal() { document.getElementById('routeModal').classList.add('hidden'); }
-    </script>
+
+
+        // ----------------------------------------------------
+        // LÓGICA DE POLLING EN TIEMPO REAL (CON LOCALSTORAGE)
+        // ----------------------------------------------------
+        let seenNotifications = {
+            completed_trips: JSON.parse(localStorage.getItem('seen_completed_trips') || '[]'),
+            accepted_requests: JSON.parse(localStorage.getItem('seen_accepted_requests') || '[]'),
+            urgent_trips: JSON.parse(localStorage.getItem('seen_urgent_trips') || '[]')
+        };
+        let pollingInterval = null;
+
+        function startStudentPolling() {
+            pollingInterval = setInterval(checkStudentNotifications, 3000);
+            checkStudentNotifications();
+        }
+
+        function checkStudentNotifications() {
+            fetch('/api/student/notifications')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) return;
+
+                    // Viajes completados
+                    fetch('/api/trips/completed-for-rating')
+                        .then(res => res.json())
+                        .then(completedData => {
+                            if (completedData.success) {
+                                completedData.trips.forEach(trip => {
+                                    if (!seenNotifications.completed_trips.includes(trip.trip_id) && !trip.has_rated) {
+                                        seenNotifications.completed_trips.push(trip.trip_id);
+                                        localStorage.setItem('seen_completed_trips', JSON.stringify(seenNotifications.completed_trips));
+                                        showRatingAlert(trip);
+                                    }
+                                });
+                            }
+                        });
+
+                    // Solicitudes aceptadas
+                    data.accepted_requests.forEach(notif => {
+                        if (!seenNotifications.accepted_requests.includes(notif.trip_id)) {
+                            seenNotifications.accepted_requests.push(notif.trip_id);
+                            localStorage.setItem('seen_accepted_requests', JSON.stringify(seenNotifications.accepted_requests));
+                            showAcceptedAlert(notif);
+                        }
+                    });
+
+                    // Viajes urgentes
+                    data.urgent_trips.forEach(trip => {
+                        if (!seenNotifications.urgent_trips.includes(trip.trip_id)) {
+                            seenNotifications.urgent_trips.push(trip.trip_id);
+                            localStorage.setItem('seen_urgent_trips', JSON.stringify(seenNotifications.urgent_trips));
+                            showUrgentTripAlert(trip);
+                        }
+                    });
+                })
+                .catch(error => console.error('Polling error:', error));
+        }
+
+        function showRatingAlert(trip) {
+            Swal.fire({
+                title: '¡Has llegado a tu destino!',
+                html: `
+                    <div class="text-left mt-2 font-sans">
+                        <p class="text-sm text-gray-500 mb-2 text-center">
+                            <strong>${trip.origin}</strong> → <strong>${trip.destination}</strong>
+                        </p>
+                        <p class="text-sm text-gray-600 mb-6 text-center">¿Cómo fue tu viaje con <strong class="text-gray-900">${trip.driver_name}</strong>?</p>
+                        
+                        <form id="rating-form-${trip.trip_id}" action="/trips/${trip.trip_id}/rating" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="to_user_id" value="${trip.driver_id}">
+                            <input type="hidden" name="rating" id="rating-value-${trip.trip_id}" value="5">
+                            
+                            <div class="flex justify-center gap-2 mb-6 cursor-pointer">
+                                <button type="button" class="star-btn-${trip.trip_id} text-yellow-400 text-4xl hover:scale-110 transition" data-value="1">★</button>
+                                <button type="button" class="star-btn-${trip.trip_id} text-yellow-400 text-4xl hover:scale-110 transition" data-value="2">★</button>
+                                <button type="button" class="star-btn-${trip.trip_id} text-yellow-400 text-4xl hover:scale-110 transition" data-value="3">★</button>
+                                <button type="button" class="star-btn-${trip.trip_id} text-yellow-400 text-4xl hover:scale-110 transition" data-value="4">★</button>
+                                <button type="button" class="star-btn-${trip.trip_id} text-yellow-400 text-4xl hover:scale-110 transition" data-value="5">★</button>
+                            </div>
+
+                            <div id="report-section-${trip.trip_id}" class="hidden mb-4">
+                                <label class="block text-xs font-bold text-red-600 uppercase mb-2">Motivo del reporte</label>
+                                <textarea name="review" rows="3" class="w-full border border-gray-300 rounded-xl p-3 text-sm bg-gray-50" placeholder="Describe el problema..."></textarea>
+                            </div>
+
+                            <div class="text-center">
+                                <button type="button" id="btn-report-${trip.trip_id}" class="text-xs font-bold text-gray-400 hover:text-red-500 transition underline focus:outline-none">
+                                    Hubo un problema, quiero reportar al conductor
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar Calificación',
+                cancelButtonText: 'Omitir',
+                confirmButtonColor: '#0D9488',
+                cancelButtonColor: '#9CA3AF',
+                allowOutsideClick: false,
+                customClass: {
+                    popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                    title: 'font-black text-gray-900 text-2xl',
+                    confirmButton: 'font-bold py-3 px-6 rounded-xl text-white',
+                    cancelButton: 'font-bold py-3 px-6 rounded-xl text-white'
+                },
+                didOpen: () => {
+                    setupStarRating(trip.trip_id);
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('rating-form-' + trip.trip_id).submit();
+                }
+            });
+        }
+
+        function showAcceptedAlert(notif) {
+            Swal.fire({
+                title: '¡Solicitud Aceptada! ✅',
+                html: `
+                    <div class="text-left mt-2 font-sans">
+                        <p class="text-sm text-gray-600 text-center">
+                            <strong>${notif.driver}</strong> aceptó tu solicitud
+                        </p>
+                        <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 mt-4">
+                            <p class="text-xs font-bold text-emerald-600 uppercase mb-1">Destino</p>
+                            <p class="text-lg font-black text-emerald-900">${notif.destination}</p>
+                        </div>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonText: 'Ver detalles',
+                confirmButtonColor: '#0D9488',
+                customClass: {
+                    popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                    title: 'font-black text-gray-900 text-xl'
+                }
+            }).then(() => {
+                window.location.href = window.location.href;
+            });
+        }
+
+        function showUrgentTripAlert(trip) {
+            Swal.fire({
+                title: '⚠️ ¡Tu viaje está por partir!',
+                html: `
+                    <div class="text-left mt-2 font-sans">
+                        <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                            <p class="text-sm text-amber-900 mb-3">
+                                <strong>${trip.origin}</strong> → <strong>${trip.destination}</strong>
+                            </p>
+                            <p class="text-2xl font-black text-amber-600">${trip.time}</p>
+                        </div>
+                    </div>
+                `,
+                icon: 'warning',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#D97706',
+                customClass: {
+                    popup: 'rounded-3xl border border-gray-100 shadow-2xl font-sans',
+                    title: 'font-black text-gray-900 text-xl'
+                }
+            });
+        }
+
+        function setupStarRating(tripId) {
+            const stars = document.querySelectorAll(`.star-btn-${tripId}`);
+            const ratingInput = document.getElementById(`rating-value-${tripId}`);
+            const btnReport = document.getElementById(`btn-report-${tripId}`);
+            const reportSection = document.getElementById(`report-section-${tripId}`);
+            const confirmBtn = Swal.getConfirmButton();
+
+            stars.forEach(star => {
+                star.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    let value = e.target.getAttribute('data-value');
+                    ratingInput.value = value;
+                    stars.forEach(s => {
+                        if (s.getAttribute('data-value') <= value) {
+                            s.classList.add('text-yellow-400');
+                            s.classList.remove('text-gray-300');
+                        } else {
+                            s.classList.remove('text-yellow-400');
+                            s.classList.add('text-gray-300');
+                        }
+                    });
+                });
+            });
+
+            btnReport.addEventListener('click', (e) => {
+                e.preventDefault();
+                reportSection.classList.remove('hidden');
+                btnReport.classList.add('hidden');
+                ratingInput.value = 1;
+                stars.forEach(s => {
+                    if (s.getAttribute('data-value') <= 1) {
+                        s.classList.add('text-yellow-400');
+                        s.classList.remove('text-gray-300');
+                    } else {
+                        s.classList.remove('text-yellow-400');
+                        s.classList.add('text-gray-300');
+                    }
+                });
+                confirmBtn.style.backgroundColor = '#DC2626';
+                confirmBtn.textContent = 'Enviar Reporte';
+            });
+        }
+
+        // ----------------------------------------------------
+        // INICIO DEL SCRIPT
+        // ----------------------------------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            startStudentPolling();
+        });
+
+        window.addEventListener('beforeunload', function() {
+            if (pollingInterval) clearInterval(pollingInterval);
+        });
+    </script> 
+    @if(session('sweet_warning'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    title: '¡Advertencia Oficial!',
+                    text: '{{ session('sweet_warning') }}',
+                    icon: 'error', // Icono rojo
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#DC2626', // Rojo
+                    allowOutsideClick: false,
+                    customClass: {
+                        popup: 'rounded-3xl border border-red-100 shadow-2xl font-sans',
+                        title: 'font-black text-red-600',
+                        confirmButton: 'font-bold py-3 px-6 rounded-xl text-white'
+                    }
+                });
+            });
+        </script>
+    @endif
+
 </x-app-layout>

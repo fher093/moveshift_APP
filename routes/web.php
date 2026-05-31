@@ -19,7 +19,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    // Dashboard
+    // Dashboard Estudiantes y Conductores
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/dashboard/switch-role', [DashboardController::class, 'switchRole'])->name('dashboard.switch-role');
 
@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/trips/{tripRequestId}/accept', [DashboardController::class, 'acceptRequest'])->name('trips.accept-request');
     Route::post('/trips/{tripRequestId}/reject', [DashboardController::class, 'rejectRequest'])->name('trips.reject-request');
     Route::post('/trips/{trip}/complete', [DashboardController::class, 'completeTrip'])->name('trips.complete');
+    
     // Vehicle Management
     Route::post('/vehicles', [DashboardController::class, 'storeVehicle'])->name('vehicles.store');
     Route::post('/vehicles/{vehicleId}/switch', [DashboardController::class, 'switchVehicle'])->name('vehicles.switch');
@@ -47,6 +48,65 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/trips/active', [\App\Http\Controllers\MapController::class, 'getActiveTrips']);
     Route::get('/api/geocode', [\App\Http\Controllers\MapController::class, 'geocode']);
     Route::get('/api/directions', [\App\Http\Controllers\MapController::class, 'getDirections']);
+    
+    // API para Polling (Tiempo Real)
+    Route::get('/api/trips/completed-for-rating', [\App\Http\Controllers\DashboardController::class, 'getCompletedTripsForRating']);
+    Route::get('/api/student/notifications', [\App\Http\Controllers\DashboardController::class, 'getStudentNotifications']); 
+    Route::get('/api/driver/notifications', [\App\Http\Controllers\DashboardController::class, 'getDriverNotifications']);
+
+    // ==========================================
+    // RUTAS EXCLUSIVAS DEL ADMINISTRADOR
+    // ==========================================
+    Route::get('/admin/dashboard', function () {
+        // Validamos que nadie extraño se cuele
+        if (auth()->user()->role !== 'admin') {
+            abort(403, 'Acceso denegado.');
+        }
+        
+        // 1. Traer reportes/críticas hacia conductores
+        $driverReports = \App\Models\Rating::where('rating', 1)
+            ->whereHas('toUser', function($q) { $q->where('role', 'driver'); })
+            ->with(['fromUser', 'toUser'])
+            ->get();
+
+        // 2. Traer reportes hacia pasajeros
+        $studentReports = \App\Models\Rating::whereNotNull('review')
+            ->whereHas('toUser', function($q) { $q->where('role', 'student'); })
+            ->with(['fromUser', 'toUser'])
+            ->get();
+
+        // 3. Traer la lista de conductores con sus promedios
+        $driversPerformance = \App\Models\User::where('role', 'driver')
+            ->withCount(['trips as completed_trips_count' => function($query) {
+                $query->where('status', 'completed'); 
+            }])
+            ->withAvg('ratingsReceived as rating_average', 'rating')
+            ->get();
+
+        return view('dashboard.admin', compact('driverReports', 'studentReports', 'driversPerformance')); 
+    })->name('admin.dashboard'); 
+
+    Route::post('/admin/users/{user}/sancion', function (\App\Models\User $user, \Illuminate\Http\Request $request) {
+        if (auth()->user()->role !== 'admin') abort(403);
+
+        $action = $request->action;
+
+        if ($action === 'advertir') {
+            $user->update(['account_status' => 'warned']);
+        } elseif ($action === 'suspender') {
+            $user->update([
+                'account_status' => 'suspended',
+                'suspended_until' => now()->addHours(2)
+            ]);
+        } elseif ($action === 'levantar') {
+            $user->update([
+                'account_status' => 'active',
+                'suspended_until' => null
+            ]);
+        }
+        return response()->json(['success' => true]);
+    })->name('admin.sancion');
+
 });
 
 require __DIR__.'/auth.php';

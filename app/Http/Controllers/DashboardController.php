@@ -13,18 +13,43 @@ use Illuminate\Http\RedirectResponse;
 class DashboardController extends Controller
 {
     /**
-     * Mostrar dashboard según el rol del usuario
+     * Mostrar dashboard según el rol del usuario, con verificación de sanciones
      */
-    public function index(): View
+public function index()
     {
-        $user = auth()->user();
-        $role = $user->role ?? 'student';
+        $user = auth()->user(); 
 
-        if ($role === 'driver') {
-            return $this->driverDashboard();
-        } else {
-            return $this->studentDashboard();
+
+
+        // VALIDACIÓN DE HIERRO: Si es admin, no importa nada más, se va al admin.dashboard
+        if ($user && $user->role === 'admin') {
+            return redirect()->route('admin.dashboard');
         }
+
+        // --- A PARTIR DE AQUÍ SOLO LLEGAN CONDUCTORES Y ESTUDIANTES ---
+
+        // 2. Verificar si la suspensión ya expiró
+        if ($user->account_status === 'suspended' && $user->suspended_until && now()->greaterThan($user->suspended_until)) {
+            $user->update(['account_status' => 'active', 'suspended_until' => null]);
+        }
+
+        // 3. Si el usuario sigue suspendido, lo bloqueamos
+        if ($user->account_status === 'suspended') {
+            auth()->logout();
+            return redirect()->route('login')->withErrors([
+                'email' => 'Tu cuenta ha sido suspendida.'
+            ]);
+        }
+
+        // 4. Advertencia
+        if ($user->account_status === 'warned') {
+            session()->flash('sweet_warning', 'Tienes una advertencia formal.');
+            $user->update(['account_status' => 'active']);
+        }
+
+        // 5. Redirección final
+        $role = $user->role ?? 'student';
+        return ($role === 'driver') ? $this->driverDashboard() : $this->studentDashboard();
     }
 
     /**
@@ -339,15 +364,226 @@ class DashboardController extends Controller
 
         return redirect()->route('dashboard')->with('success', 'Rol cambiado exitosamente');
     } 
-    public function completeTrip(\App\Models\Trip $trip)
+
+    /**
+     * Completar un viaje (Conductor)
+     * También procesa si el conductor incluyó un reporte de incidencia al finalizar.
+     */
+    public function completeTrip(\App\Models\Trip $trip, Request $request)
     {
-    // Verificamos que el usuario logueado sea realmente el conductor de ese viaje
-    if ($trip->driver_id === auth()->id()) {
-        $trip->update([
-            'status' => 'completed'
+        // Verificamos que el usuario logueado sea realmente el conductor de ese viaje
+        if ($trip->driver_id === auth()->id()) {
+            
+            // 1. Cambiamos el estado del viaje a completado
+            $trip->update([
+                'status' => 'completed'
+            ]);
+
+            // 2. Si el conductor escribió un reporte (driver_report), se lo aplicamos a todos los pasajeros de ese viaje
+            if ($request->has('driver_report') && !empty($request->driver_report)) {
+                $passengers = TripRequest::where('trip_id', $trip->id)->where('status', 'accepted')->get();
+                
+                foreach ($passengers as $req) {
+                    // Creamos el reporte con 1 estrella (mala conducta)
+                    Rating::create([
+                        'trip_id' => $trip->id,
+                        'from_user_id' => auth()->id(),
+                        'to_user_id' => $req->passenger_id,
+                        'rating' => 1,
+                        'review' => $request->driver_report
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->back()->with('success', 'Viaje finalizado exitosamente.');
+    } 
+
+    /**
+     * API Endpoint: Obtener viajes completados que necesitan calificación
+     * Usado para Polling en tiempo real
+     */
+    public function getCompletedTripsForRating()
+    {
+        $user = auth()->user();
+
+        // Obtener viajes donde el pasajero participó y fueron completados
+        $completedTrips = TripRequest::where('passenger_id', $user->id)
+            ->where('status', 'accepted')
+            ->whereHas('trip', function ($query) {
+                $query->where('status', 'completed');
+            })
+            ->with('trip.driver', 'trip.vehicle')
+            ->get()
+            ->map(function ($request) {
+                // Verificar si ya calificó
+                $hasRated = Rating::where('trip_id', $request->trip->id)
+                    ->where('from_user_id', auth()->id())
+                    ->where('to_user_id', $request->trip->driver_id)
+                    ->exists();
+
+                return [
+                    'trip_id' => $request->trip->id,
+                    'driver_name' => $request->trip->driver->name,
+                    'driver_id' => $request->trip->driver->id,
+                    'origin' => $request->trip->origin_zone,
+                    'destination' => $request->trip->destination_zone,
+                    'has_rated' => $hasRated,
+                    'vehicle' => [
+                        'brand' => $request->trip->vehicle?->brand ?? 'N/A',
+                        'model' => $request->trip->vehicle?->model ?? 'N/A',
+                        'plate' => $request->trip->vehicle?->plate ?? 'N/A',
+                        'color' => $request->trip->vehicle?->color ?? 'N/A',
+                    ],
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'trips' => $completedTrips,
+        ]);
+    } 
+
+
+    /**
+     * API Endpoint: Notificaciones para PASAJEROS en tiempo real
+     */
+    public function getStudentNotifications()
+    {
+        $user = auth()->user();
+
+        // Viajes confirmados que están por salir (próximos 5 minutos)
+        $urgentTrips = TripRequest::where('passenger_id', $user->id)
+            ->where('status', 'accepted')
+            ->with('trip')
+            ->get()
+            ->filter(function($req) {
+                $mins = round(now()->diffInMinutes($req->trip->departure_time, false));
+                return $mins >= 0 && $mins <= 5;
+            })
+            ->map(function($req) {
+                $mins = round(now()->diffInMinutes($req->trip->departure_time, false));
+                $timeText = $mins == 0 ? '¡En este momento!' : "en $mins minuto" . ($mins > 1 ? 's' : '');
+                
+                return [
+                    'type' => 'urgent',
+                    'trip_id' => $req->trip->id,
+                    'message' => "Tu viaje está por salir hacia {$req->trip->destination_zone} {$timeText}",
+                    'origin' => $req->trip->origin_zone,
+                    'destination' => $req->trip->destination_zone,
+                    'time' => $req->trip->departure_time,
+                ];
+            });
+
+        // Solicitudes pendientes
+        $pendingRequests = TripRequest::where('passenger_id', $user->id)
+            ->where('status', 'pending')
+            ->with('trip')
+            ->latest()
+            ->get()
+            ->map(function($req) {
+                return [
+                    'type' => 'pending',
+                    'trip_id' => $req->trip->id,
+                    'message' => "Solicitud pendiente para {$req->trip->destination_zone}",
+                    'destination' => $req->trip->destination_zone,
+                ];
+            });
+
+        // Solicitudes aceptadas (nuevas)
+        $acceptedRequests = TripRequest::where('passenger_id', $user->id)
+            ->where('status', 'accepted')
+            ->whereDate('updated_at', now())
+            ->with('trip.driver')
+            ->latest()
+            ->get()
+            ->map(function($req) {
+                return [
+                    'type' => 'accepted',
+                    'trip_id' => $req->trip->id,
+                    'message' => "¡Tu solicitud fue aceptada! {$req->trip->driver->name} será tu conductor",
+                    'driver' => $req->trip->driver->name,
+                    'destination' => $req->trip->destination_zone,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'urgent_trips' => $urgentTrips->values(),
+            'pending_requests' => $pendingRequests->values(),
+            'accepted_requests' => $acceptedRequests->values(),
+            'count' => $urgentTrips->count() + $pendingRequests->count() + $acceptedRequests->count(),
         ]);
     }
 
-    return redirect()->back()->with('success', 'Viaje finalizado exitosamente.');
+    /**
+     * API Endpoint: Notificaciones para CONDUCTORES en tiempo real
+     */
+    public function getDriverNotifications()
+    {
+        $user = auth()->user();
+
+        // Nuevas solicitudes pendientes
+        $newRequests = TripRequest::whereHas('trip', function ($query) use ($user) {
+                $query->where('driver_id', $user->id);
+            })
+            ->where('status', 'pending')
+            ->whereDate('created_at', now())
+            ->with('passenger', 'trip')
+            ->latest()
+            ->get()
+            ->map(function($req) {
+                return [
+                    'type' => 'new_request',
+                    'request_id' => $req->id,
+                    'trip_id' => $req->trip->id,
+                    'message' => "{$req->passenger->name} solicitó unirse a tu viaje",
+                    'passenger' => $req->passenger->name,
+                    'destination' => $req->trip->destination_zone,
+                    'time' => $req->created_at,
+                ];
+            });
+
+        // Viajes activos con cambios (nuevos pasajeros confirmados hoy)
+        $activeTrips = Trip::where('driver_id', $user->id)
+            ->where('status', 'active')
+            ->with('requests.passenger')
+            ->latest('departure_time')
+            ->get()
+            ->map(function($trip) {
+                $acceptedCount = $trip->requests->where('status', 'accepted')->count();
+                $totalSeats = $trip->total_seats;
+                $available = $trip->available_seats;
+                
+                return [
+                    'type' => 'active_trip',
+                    'trip_id' => $trip->id,
+                    'origin' => $trip->origin_zone,
+                    'destination' => $trip->destination_zone,
+                    'message' => "$acceptedCount pasajero(s) confirmado(s) | $available plaza(s) disponible(s)",
+                    'passengers_accepted' => $acceptedCount,
+                    'available_seats' => $available,
+                    'departure_time' => $trip->departure_time,
+                ];
+            });
+
+        // Viajes que están por partir (próximos 15 minutos)
+        $soonTrips = $activeTrips->filter(function($trip) {
+            $mins = round(now()->diffInMinutes($trip['departure_time'], false));
+            return $mins >= 0 && $mins <= 15;
+        })->map(function($trip) {
+            $mins = round(now()->diffInMinutes($trip['departure_time'], false));
+            $trip['type'] = 'soon_trip';
+            $trip['message'] = "Tu viaje {$trip['origin']} → {$trip['destination']} sale en $mins minuto(s)";
+            return $trip;
+        });
+
+        return response()->json([
+            'success' => true,
+            'new_requests' => $newRequests->values(),
+            'active_trips' => $activeTrips->values(),
+            'soon_trips' => $soonTrips->values(),
+            'count' => $newRequests->count() + $activeTrips->count() + $soonTrips->count(),
+        ]);
     }
 }
